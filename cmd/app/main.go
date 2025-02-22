@@ -28,5 +28,5 @@ func main() {
 	if err := e.Start(":8080"); err != nil {
 		log.Fatalf("failed to start with err: %v", err)
 	}
-	fmt.Println("test")
+	fmt.Println("test new")
 }
