@@ -10,27 +10,63 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/oapi-codegen/runtime"
 	strictecho "github.com/oapi-codegen/runtime/strictmiddleware/echo"
 )
 
+// Error defines model for Error.
+type Error struct {
+	// Error Сообщение об ошибке
+	Error *string `json:"error,omitempty"`
+}
+
 // Task defines model for Task.
 type Task struct {
-	Id     *uint   `json:"id,omitempty"`
-	IsDone *bool   `json:"is_done,omitempty"`
-	Task   *string `json:"task,omitempty"`
+	// Id Уникальный идентификатор задачи
+	Id *uint `json:"id,omitempty"`
+
+	// IsDone Статус выполнения задачи (true - выполнена, false - не выполнена)
+	IsDone *bool `json:"is_done,omitempty"`
+
+	// Task Описание задачи
+	Task *string `json:"task"`
+}
+
+// BadRequestError defines model for BadRequestError.
+type BadRequestError = Error
+
+// InternalServerError defines model for InternalServerError.
+type InternalServerError = Error
+
+// PostTasksJSONBody defines parameters for PostTasks.
+type PostTasksJSONBody struct {
+	// IsDone c
+	IsDone bool `json:"is_done,omitempty"`
+
+	// Task Описание задачи
+	Task *string `json:"task"`
 }
 
 // PostTasksJSONRequestBody defines body for PostTasks for application/json ContentType.
-type PostTasksJSONRequestBody = Task
+type PostTasksJSONRequestBody PostTasksJSONBody
+
+// PutTasksIdJSONRequestBody defines body for PutTasksId for application/json ContentType.
+type PutTasksIdJSONRequestBody = Task
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Get all tasks
+	// Получить список всех задач
 	// (GET /tasks)
 	GetTasks(ctx echo.Context) error
-	// Create a new task
+	// Создать новую задачу
 	// (POST /tasks)
 	PostTasks(ctx echo.Context) error
+	// Удалить задачу
+	// (DELETE /tasks/{id})
+	DeleteTasksId(ctx echo.Context, id int64) error
+	// Обновить существующую задачу
+	// (PUT /tasks/{id})
+	PutTasksId(ctx echo.Context, id int64) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -53,6 +89,38 @@ func (w *ServerInterfaceWrapper) PostTasks(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.PostTasks(ctx)
+	return err
+}
+
+// DeleteTasksId converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteTasksId(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteTasksId(ctx, id)
+	return err
+}
+
+// PutTasksId converts echo context to params.
+func (w *ServerInterfaceWrapper) PutTasksId(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.PutTasksId(ctx, id)
 	return err
 }
 
@@ -86,8 +154,14 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 
 	router.GET(baseURL+"/tasks", wrapper.GetTasks)
 	router.POST(baseURL+"/tasks", wrapper.PostTasks)
+	router.DELETE(baseURL+"/tasks/:id", wrapper.DeleteTasksId)
+	router.PUT(baseURL+"/tasks/:id", wrapper.PutTasksId)
 
 }
+
+type BadRequestErrorJSONResponse Error
+
+type InternalServerErrorJSONResponse Error
 
 type GetTasksRequestObject struct {
 }
@@ -101,6 +175,17 @@ type GetTasks200JSONResponse []Task
 func (response GetTasks200JSONResponse) VisitGetTasksResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetTasks500JSONResponse struct {
+	InternalServerErrorJSONResponse
+}
+
+func (response GetTasks500JSONResponse) VisitGetTasksResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -122,14 +207,123 @@ func (response PostTasks201JSONResponse) VisitPostTasksResponse(w http.ResponseW
 	return json.NewEncoder(w).Encode(response)
 }
 
+type PostTasks400JSONResponse struct{ BadRequestErrorJSONResponse }
+
+func (response PostTasks400JSONResponse) VisitPostTasksResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PostTasks500JSONResponse struct {
+	InternalServerErrorJSONResponse
+}
+
+func (response PostTasks500JSONResponse) VisitPostTasksResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteTasksIdRequestObject struct {
+	Id int64 `json:"id"`
+}
+
+type DeleteTasksIdResponseObject interface {
+	VisitDeleteTasksIdResponse(w http.ResponseWriter) error
+}
+
+type DeleteTasksId204Response struct {
+}
+
+func (response DeleteTasksId204Response) VisitDeleteTasksIdResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteTasksId404JSONResponse Error
+
+func (response DeleteTasksId404JSONResponse) VisitDeleteTasksIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteTasksId500JSONResponse struct {
+	InternalServerErrorJSONResponse
+}
+
+func (response DeleteTasksId500JSONResponse) VisitDeleteTasksIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PutTasksIdRequestObject struct {
+	Id   int64 `json:"id"`
+	Body *PutTasksIdJSONRequestBody
+}
+
+type PutTasksIdResponseObject interface {
+	VisitPutTasksIdResponse(w http.ResponseWriter) error
+}
+
+type PutTasksId200JSONResponse Task
+
+func (response PutTasksId200JSONResponse) VisitPutTasksIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PutTasksId400JSONResponse struct{ BadRequestErrorJSONResponse }
+
+func (response PutTasksId400JSONResponse) VisitPutTasksIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PutTasksId404JSONResponse Error
+
+func (response PutTasksId404JSONResponse) VisitPutTasksIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PutTasksId500JSONResponse struct {
+	InternalServerErrorJSONResponse
+}
+
+func (response PutTasksId500JSONResponse) VisitPutTasksIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
-	// Get all tasks
+	// Получить список всех задач
 	// (GET /tasks)
 	GetTasks(ctx context.Context, request GetTasksRequestObject) (GetTasksResponseObject, error)
-	// Create a new task
+	// Создать новую задачу
 	// (POST /tasks)
 	PostTasks(ctx context.Context, request PostTasksRequestObject) (PostTasksResponseObject, error)
+	// Удалить задачу
+	// (DELETE /tasks/{id})
+	DeleteTasksId(ctx context.Context, request DeleteTasksIdRequestObject) (DeleteTasksIdResponseObject, error)
+	// Обновить существующую задачу
+	// (PUT /tasks/{id})
+	PutTasksId(ctx context.Context, request PutTasksIdRequestObject) (PutTasksIdResponseObject, error)
 }
 
 type StrictHandlerFunc = strictecho.StrictEchoHandlerFunc
@@ -190,6 +384,62 @@ func (sh *strictHandler) PostTasks(ctx echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(PostTasksResponseObject); ok {
 		return validResponse.VisitPostTasksResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteTasksId operation middleware
+func (sh *strictHandler) DeleteTasksId(ctx echo.Context, id int64) error {
+	var request DeleteTasksIdRequestObject
+
+	request.Id = id
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteTasksId(ctx.Request().Context(), request.(DeleteTasksIdRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteTasksId")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DeleteTasksIdResponseObject); ok {
+		return validResponse.VisitDeleteTasksIdResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PutTasksId operation middleware
+func (sh *strictHandler) PutTasksId(ctx echo.Context, id int64) error {
+	var request PutTasksIdRequestObject
+
+	request.Id = id
+
+	var body PutTasksIdJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.PutTasksId(ctx.Request().Context(), request.(PutTasksIdRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutTasksId")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(PutTasksIdResponseObject); ok {
+		return validResponse.VisitPutTasksIdResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

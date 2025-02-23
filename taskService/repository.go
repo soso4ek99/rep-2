@@ -10,7 +10,7 @@ import (
 type TaskRepository interface {
 	CreateTask(task Task) (Task, error)
 	GetAllTasks() ([]Task, error)
-	UpdateTaskByID(id int, updatedtask Task) (Task, error)
+	UpdateTaskByID(id uint, updatedtask Task) (Task, error)
 	DeleteTaskByID(id int) error
 }
 type taskRepository struct {
@@ -32,7 +32,7 @@ func (r *taskRepository) GetAllTasks() ([]Task, error) {
 	err := r.db.Find(&task).Error
 	return task, err
 }
-func (r *taskRepository) UpdateTaskByID(id int, updatedtask Task) (Task, error) {
+func (r *taskRepository) UpdateTaskByID(id uint, updatedtask Task) (Task, error) {
 	var task Task
 	first := r.db.First(&task, id)
 	if first.Error != nil {
