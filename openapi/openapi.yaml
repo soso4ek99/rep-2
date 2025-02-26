@@ -3,6 +3,110 @@ info:
   title: API
   version: 1.0.0
 paths:
+  /users:
+    get:
+      summary: Получить список всех пользователей
+      tags:
+        - users
+      description: Возвращает список всех пользователей. Пароли не возвращаются.
+      responses:
+        '200':
+          description: Успешный ответ. Возвращает массив пользователей.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      summary: Создать нового пользователя
+      tags:
+        - users
+      description: Создает нового пользователя.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: Email пользователя
+                  format: email
+                password:
+                  type: string
+                  description: Пароль пользователя
+                  writeOnly: true
+              required:
+                - email
+                - password
+      responses:
+        '201':
+          description: Пользователь успешно создан. Возвращает созданного пользователя (без пароля).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /users/{id}:
+    patch:
+      summary: Обновить существующего пользователя (частично)
+      tags:
+        - users
+      description: Обновляет существующего пользователя по ID (частично).
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: uint
+          description: ID пользователя для обновления
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'  # Используем UserUpdate, который не требует email/password
+      responses:
+        '200':
+          description: Пользователь успешно обновлен. Возвращает обновленного пользователя (без пароля).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Удалить пользователя
+      tags:
+        - users
+      description: Удаляет пользователя по ID.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: uint
+          description: ID пользователя для удаления
+      responses:
+        '204':
+          description: Пользователь успешно удален (No Content).
+        '404':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /tasks:
     get:
       summary: Получить список всех задач
@@ -115,6 +219,36 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 components:
   schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: uint
+          description: идентификатор
+          readOnly: true
+        email:
+          type: string
+          description: емаил
+          format: email
+        password:
+          type: integer
+          format: uint
+          description: пароль
+          writeOnly: true
+      required:
+        - email
+    UserUpdate:
+      type: object
+      properties:
+        email:
+          type: string
+          description: Email пользователя
+          format: email
+        password:
+          type: string
+          description: Пароль пользователя (для обновления)
+          writeOnly: true
     Task:
       type: object
       properties:
@@ -138,7 +272,6 @@ components:
         error:
           type: string
           description: Сообщение об ошибке
-
   responses:
     BadRequestError:
       description: Некорректный запрос

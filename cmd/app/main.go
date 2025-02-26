@@ -4,7 +4,9 @@ import (
 	"apitest/internal/database"
 	"apitest/internal/handlers"
 	"apitest/internal/web/tasks"
+	"apitest/internal/web/users"
 	"apitest/taskService"
+	"apitest/userService"
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -14,17 +16,20 @@ import (
 func main() {
 	database.InitDB()
 
-	repo := taskService.NewTaskRepository(database.DB)
-	service := taskService.NewService(repo)
-	handler := handlers.NewHandler(service)
+	userrepo := userService.NewUserRepository(database.DB)
+	userservice := userService.NewUserService(userrepo)
+	userhandler := handlers.NewHandlers(userservice)
+	taskrepo := taskService.NewTaskRepository(database.DB)
+	taskservice := taskService.NewService(taskrepo)
+	taskhandler := handlers.NewHandler(taskservice)
 
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-
-	strictHandler := tasks.NewStrictHandler(handler, nil)
+	userstrictHandler := users.NewStrictHandler(userhandler, nil)
+	users.RegisterHandlers(e, userstrictHandler)
+	strictHandler := tasks.NewStrictHandler(taskhandler, nil)
 	tasks.RegisterHandlers(e, strictHandler)
-
 	if err := e.Start(":8080"); err != nil {
 		log.Fatalf("failed to start with err: %v", err)
 	}
