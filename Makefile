@@ -8,7 +8,6 @@ migrate-new:
 # Применение миграций
 migrate:
 	$(MIGRATE) up
-
 # Откат миграций
 migrate-down:
 	$(MIGRATE) down

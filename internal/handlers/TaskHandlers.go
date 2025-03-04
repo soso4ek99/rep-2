@@ -11,6 +11,31 @@ type Handler struct {
 	Service *taskService.TaskService
 }
 
+func (h *Handler) GetUsersIdTasks(ctx context.Context, request tasks.GetUsersIdTasksRequestObject) (tasks.GetUsersIdTasksResponseObject, error) {
+	userID := request.Id
+	tasksForUser, err := h.Service.GetTasksByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(tasksForUser) == 0 {
+		return tasks.GetUsersIdTasks200JSONResponse{}, nil
+	}
+
+	var response tasks.GetUsersIdTasks200JSONResponse
+	for _, tsk := range tasksForUser {
+		task := tasks.Task{
+			Id:     &tsk.ID,
+			Task:   &tsk.Task,
+			IsDone: &tsk.IsDone,
+			UserId: &tsk.UserID,
+		}
+		response = append(response, task)
+	}
+
+	return response, nil
+}
+
 func (h *Handler) DeleteTasksId(ctx context.Context, request tasks.DeleteTasksIdRequestObject) (tasks.DeleteTasksIdResponseObject, error) {
 	id := int(request.Id) // Преобразуем int в uint
 
@@ -62,7 +87,6 @@ func (h *Handler) PutTasksId(ctx context.Context, request tasks.PutTasksIdReques
 	}
 	return response, nil // 200 OK
 }
-
 func (h *Handler) GetTasks(_ context.Context, _ tasks.GetTasksRequestObject) (tasks.GetTasksResponseObject, error) {
 	allTasks, err := h.Service.GetAllTasks()
 	if err != nil {
@@ -77,6 +101,7 @@ func (h *Handler) GetTasks(_ context.Context, _ tasks.GetTasksRequestObject) (ta
 			Id:     &tsk.ID, // Преобразуем uint в *uint64
 			Task:   &tsk.Task,
 			IsDone: &tsk.IsDone,
+			UserId: &tsk.UserID,
 		}
 		response = append(response, task)
 	}
@@ -90,6 +115,7 @@ func (h *Handler) PostTasks(ctx context.Context, request tasks.PostTasksRequestO
 	taskToCreate := taskService.Task{
 		Task:   *taskRequest.Task,
 		IsDone: taskRequest.IsDone,
+		UserID: *taskRequest.UserId,
 	}
 	createdTask, err := h.Service.CreateTask(taskToCreate) // Создаем задачу через сервис
 	if err != nil {
@@ -102,6 +128,7 @@ func (h *Handler) PostTasks(ctx context.Context, request tasks.PostTasksRequestO
 		Id:     &createdTask.ID,
 		Task:   &createdTask.Task,
 		IsDone: &createdTask.IsDone,
+		UserId: &createdTask.UserID,
 	}
 	return response, nil // 201 Created
 }

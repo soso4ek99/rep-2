@@ -10,6 +10,7 @@ import (
 type TaskRepository interface {
 	CreateTask(task Task) (Task, error)
 	GetAllTasks() ([]Task, error)
+	GetTasksByUserID(userID uint) ([]Task, error)
 	UpdateTaskByID(id uint, updatedtask Task) (Task, error)
 	DeleteTaskByID(id int) error
 }
@@ -32,6 +33,12 @@ func (r *taskRepository) GetAllTasks() ([]Task, error) {
 	err := r.db.Find(&task).Error
 	return task, err
 }
+func (r *taskRepository) GetTasksByUserID(userID uint) ([]Task, error) {
+	var tasks []Task
+	err := r.db.Where("user_id = ?", userID).Find(&tasks).Error
+	return tasks, err
+}
+
 func (r *taskRepository) UpdateTaskByID(id uint, updatedtask Task) (Task, error) {
 	var task Task
 	first := r.db.First(&task, id)
